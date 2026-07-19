@@ -1,0 +1,272 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+# 
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-08-14 06:44+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=4; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
+"n%10<=4 && (n%100<12 || n%100>14) ? 1 : n%10==0 || (n%10>=5 && n%10<=9) || "
+"(n%100>=11 && n%100<=14)? 2 : 3);\n"
+
+#: account/admin.py:17
+msgid "Personal info"
+msgstr "Личная информация"
+
+#: account/admin.py:19
+msgid "Permissions"
+msgstr "Разрешения"
+
+#: account/models.py:13
+msgid "PINFL must consist of 14 digits"
+msgstr "ПИНФЛ должен состоять из 14 цифр"
+
+#: account/models.py:18
+msgid "Admin"
+msgstr "Администратор"
+
+#: account/models.py:19
+msgid "Center Director"
+msgstr "Директор центра"
+
+#: account/models.py:20
+msgid "Center Manager"
+msgstr "Менеджер центра"
+
+#: account/models.py:21
+msgid "Regional Manager"
+msgstr "Региональный менеджер"
+
+#: account/models.py:22
+msgid "Ministry employee"
+msgstr "Сотрудник министерства"
+
+#: account/models.py:23
+msgid "Legal entity"
+msgstr "Юридическое лицо"
+
+#: account/models.py:30
+msgid "PINFL"
+msgstr "ПИНФЛ"
+
+#: account/models.py:36
+msgid "Identification number only 14 digits must be entered"
+msgstr "Идентификационный номер должен состоять только из 14 цифр"
+
+#: account/models.py:40
+msgid "A user with such an identification number already exists."
+msgstr "Пользователь с таким идентификационным номером уже существует."
+
+#: account/models.py:43
+msgid "F.I.SH"
+msgstr "Ф.И.О."
+
+#: account/models.py:44
+msgid "Role"
+msgstr "Роль"
+
+#: account/models.py:47 info/models.py:14
+msgid "Ministry"
+msgstr "Министерство"
+
+#: account/models.py:51
+msgid "Region"
+msgstr "Регион"
+
+#: account/models.py:54
+#| msgid "Region"
+msgid "Regions"
+msgstr "Регион"
+
+#: account/models.py:60
+msgid "User"
+msgstr "Пользователь"
+
+#: account/models.py:61
+msgid "Users"
+msgstr "Пользователи"
+
+#: account/validators.py:8
+msgid "Region or Ministry cannot be entered together."
+msgstr "Регион или Министерство не могут быть введены вместе."
+
+#: account/validators.py:12
+msgid "Ministry is required"
+msgstr "Министерство обязательно"
+
+#: account/validators.py:15
+msgid "Region is required"
+msgstr "Регион обязателен"
+
+#: account/validators.py:17
+msgid "Region or Ministry cannot be entered."
+msgstr "Регион или Министерство не могут быть введены."
+
+#: account/views.py:125 account/views.py:263
+msgid "Doesn't exist such as user"
+msgstr "Такого пользователя не существует"
+
+#: account/views.py:139
+msgid "To submit an application, log in through your legal entity profile."
+msgstr "Чтобы подать заявку, войдите через профиль вашего юридического лица."
+
+#: account/views.py:140
+msgid "No access allowed."
+msgstr "Доступ запрещен."
+
+#: account/views.py:146
+msgid "An unexpected error occurred. Please try again."
+msgstr "Произошла непредвиденная ошибка. Пожалуйста, попробуйте снова."
+
+#: appeal/serializers.py:64 damaged_object/serializers.py:69
+msgid ""
+"You cannot enter this cadastral digital object because an action is "
+"currently being performed on this object."
+msgstr ""
+"Вы не можете ввести этот кадастровый цифровой объект, так как в настоящее "
+"время с ним выполняется действие."
+
+#: appeal/views.py:56 appeal/views.py:86 damaged_object/views.py:82
+#: damaged_object/views.py:100 damaged_object/views.py:168
+#: damaged_object/views.py:191 plan/views.py:77
+msgid "This object is already checked"
+msgstr "Этот объект уже проверен"
+
+#: baseapp/integrations.py:35 baseapp/integrations.py:56
+#: baseapp/integrations.py:78 baseapp/integrations.py:89
+#: damaged_object/services.py:237
+msgid "Sorry, there was an error retrieving data."
+msgstr "Извините, возникла ошибка при получении данных."
+
+#: baseapp/integrations.py:54 baseapp/integrations.py:76
+msgid "Sorry, the data could not be found."
+msgstr "Извините, данные не были найдены."
+
+#: baseapp/integrations.py:86 damaged_object/services.py:234
+#| msgid "An unexpected error occurred. Please try again."
+msgid "Sorry, an unexpected error occurred while processing the data."
+msgstr "Произошла непредвиденная ошибка. Пожалуйста, попробуйте снова."
+
+#: baseapp/models.py:6
+msgid "Name"
+msgstr "Имя"
+
+#: baseapp/models.py:7 baseapp/models.py:16
+msgid "Created at"
+msgstr "Создано"
+
+#: baseapp/models.py:8 baseapp/models.py:17
+msgid "Updated at"
+msgstr "Обновлено"
+
+#: baseapp/models.py:9
+msgid "Is active"
+msgstr "Активен"
+
+#: config/settings.py:146
+msgid "Uzbek"
+msgstr "Узбекский"
+
+#: config/settings.py:147
+msgid "Russian"
+msgstr "Русский"
+
+#: config/settings.py:148
+msgid "Uzbek Cyrillic"
+msgstr "Узбекский Кириллица"
+
+#: config/settings.py:149
+msgid "Qoraqalpoq"
+msgstr "Каракалпакский"
+
+#: config/utils.py:25
+msgid "A server error occurred."
+msgstr "Произошла ошибка сервера."
+
+#: damaged_object/serializers.py:84 damaged_object/serializers.py:204
+msgid "You cannot create damaged object in this region."
+msgstr "Вы не можете создать поврежденный объект в этом регионе."
+
+#: damaged_object/services.py:213 damaged_object/services.py:220
+#| msgid ""
+#| "You cannot enter this cadastral digital object because an action is "
+#| "currently being performed on this object."
+msgid ""
+"You do not have permission to enter this cadastral digital object because it "
+"belongs to another region."
+msgstr ""
+"Вы не можете ввести этот кадастровый цифровой объект, так как в настоящее "
+"время с ним выполняется действие."
+
+#: damaged_object/validators.py:13
+msgid "The video size should not exceed 50MB."
+msgstr "Размер видео не должен превышать 50 МБ."
+
+#: damaged_object/validators.py:22
+msgid "The video format should be MP4, AVI, MOV or MKV."
+msgstr "Формат видео должен быть MP4, AVI, MOV или MKV."
+
+#: damaged_object/validators.py:40
+msgid "Invalid coordinates format. Must be a list of polygons."
+msgstr "Неверный формат координат. Должен быть список полигонов."
+
+#: damaged_object/views.py:98
+#| msgid "This object is already checked"
+msgid "This object is not in process"
+msgstr "Этот объект уже проверен"
+
+#: damaged_object/views.py:257
+msgid "Invalid type"
+msgstr "Неверный тип"
+
+#: damaged_object/views.py:295
+#| msgid "Ministry is required"
+msgid "Cadastral number is required"
+msgstr "Министерство обязательно"
+
+#: damaged_object/views.py:302
+msgid ""
+"This cadastral digital object was previously included and work on it has not "
+"yet been completed."
+msgstr ""
+"Данный кадастровый цифровой объект был ранее включен, и работа над ним еще "
+"не завершена."
+
+#: damaged_object/views.py:324
+#| msgid "Region is required"
+msgid "PINFL is required"
+msgstr "Регион обязателен"
+
+#: info/models.py:15
+msgid "Ministries"
+msgstr "Министерства"
+
+#: info/models.py:22
+msgid "Open area type"
+msgstr "Тип открытой зоны"
+
+#: info/models.py:23
+msgid "Open area types"
+msgstr "Типы открытых зон"
+
+#: plan/serializers.py:78
+msgid "Plan must have at least one item"
+msgstr "План должен содержать хотя бы один пункт"
+
+#: plan/serializers.py:81
+msgid "This item has not been performed yet"
+msgstr "Данный пункт еще не выполнен"
+
+#: plan/serializers.py:109
+msgid "This plan cannot be edited."
+msgstr "Этот план нельзя редактировать."

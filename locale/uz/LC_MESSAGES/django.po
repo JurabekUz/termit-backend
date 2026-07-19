@@ -1,0 +1,270 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+# 
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-08-14 06:44+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#: account/admin.py:17
+msgid "Personal info"
+msgstr "Shaxsiy ma'lumotlar"
+
+#: account/admin.py:19
+msgid "Permissions"
+msgstr "Ruxsatlar"
+
+#: account/models.py:13
+msgid "PINFL must consist of 14 digits"
+msgstr "PINFL 14 ta raqamdan iborat bo'lishi kerak"
+
+#: account/models.py:18
+msgid "Admin"
+msgstr "Administrator"
+
+#: account/models.py:19
+msgid "Center Director"
+msgstr "Markaz direktori"
+
+#: account/models.py:20
+msgid "Center Manager"
+msgstr "Markaz menejeri"
+
+#: account/models.py:21
+msgid "Regional Manager"
+msgstr "Viloyat menejeri"
+
+#: account/models.py:22
+msgid "Ministry employee"
+msgstr "Vazirligi xodimi"
+
+#: account/models.py:23
+msgid "Legal entity"
+msgstr "Yuridik shaxs"
+
+#: account/models.py:30
+msgid "PINFL"
+msgstr "Shaxsiy identifikatsiya raqami"
+
+#: account/models.py:36
+msgid "Identification number only 14 digits must be entered"
+msgstr "Identifikatsiya raqami faqat 14 ta raqamdan iborat bo'lishi kerak"
+
+#: account/models.py:40
+msgid "A user with such an identification number already exists."
+msgstr "Shunday identifikatsiya raqamiga ega foydalanuvchi allaqachon mavjud"
+
+#: account/models.py:43
+msgid "F.I.SH"
+msgstr "F.I.SH"
+
+#: account/models.py:44
+msgid "Role"
+msgstr "Roli"
+
+#: account/models.py:47 info/models.py:14
+msgid "Ministry"
+msgstr "Vazirligi"
+
+#: account/models.py:51
+msgid "Region"
+msgstr "Viloyat"
+
+#: account/models.py:54
+#| msgid "Region"
+msgid "Regions"
+msgstr "Viloyat"
+
+#: account/models.py:60
+msgid "User"
+msgstr "Foydalanuvchi"
+
+#: account/models.py:61
+msgid "Users"
+msgstr "Foydalanuvchilar"
+
+#: account/validators.py:8
+msgid "Region or Ministry cannot be entered together."
+msgstr "Viloyat yoki Vazirligi birgalikda kiritilishi mumkin emas"
+
+#: account/validators.py:12
+msgid "Ministry is required"
+msgstr "Vazirligi kerak"
+
+#: account/validators.py:15
+msgid "Region is required"
+msgstr "Viloyat kerak"
+
+#: account/validators.py:17
+msgid "Region or Ministry cannot be entered."
+msgstr "Viloyat yoki Vazirligi kiritilishi mumkin emas"
+
+#: account/views.py:125 account/views.py:263
+msgid "Doesn't exist such as user"
+msgstr "Bunday foydalanuvchi mavjud emas"
+
+#: account/views.py:139
+msgid "To submit an application, log in through your legal entity profile."
+msgstr "Ariza topshirish uchun yuridik shaxs profili orqali tizimga kiring."
+
+#: account/views.py:140
+msgid "No access allowed."
+msgstr "Kirishga ruxsat yo‘q."
+
+#: account/views.py:146
+msgid "An unexpected error occurred. Please try again."
+msgstr "Kutilmagan xatolik yuz berdi. Iltimos, qayta urinib ko'ring"
+
+#: appeal/serializers.py:64 damaged_object/serializers.py:69
+msgid ""
+"You cannot enter this cadastral digital object because an action is "
+"currently being performed on this object."
+msgstr ""
+"Siz bu kadastr raqamli ob'ektni kirata olmaysiz, chunki bu ob'ekt ustida "
+"hozirda amal bajarilmoqda."
+
+#: appeal/views.py:56 appeal/views.py:86 damaged_object/views.py:82
+#: damaged_object/views.py:100 damaged_object/views.py:168
+#: damaged_object/views.py:191 plan/views.py:77
+msgid "This object is already checked"
+msgstr "Bu ob'ekt allaqachon tekshirilgan"
+
+#: baseapp/integrations.py:35 baseapp/integrations.py:56
+#: baseapp/integrations.py:78 baseapp/integrations.py:89
+#: damaged_object/services.py:237
+msgid "Sorry, there was an error retrieving data."
+msgstr "Kechirasiz, maʼlumotlarni olishda xatolik yuz berdi."
+
+#: baseapp/integrations.py:54 baseapp/integrations.py:76
+msgid "Sorry, the data could not be found."
+msgstr "Kechirasiz, ma'lumotlar topilmadi."
+
+#: baseapp/integrations.py:86 damaged_object/services.py:234
+#| msgid "An unexpected error occurred. Please try again."
+msgid "Sorry, an unexpected error occurred while processing the data."
+msgstr "Kutilmagan xatolik yuz berdi. Iltimos, qayta urinib ko'ring"
+
+#: baseapp/models.py:6
+msgid "Name"
+msgstr "Nomi"
+
+#: baseapp/models.py:7 baseapp/models.py:16
+msgid "Created at"
+msgstr "Yaratilgan vaqti"
+
+#: baseapp/models.py:8 baseapp/models.py:17
+msgid "Updated at"
+msgstr "Yangilangan vaqti"
+
+#: baseapp/models.py:9
+msgid "Is active"
+msgstr "Aktivligi"
+
+#: config/settings.py:146
+msgid "Uzbek"
+msgstr "O'zbek"
+
+#: config/settings.py:147
+msgid "Russian"
+msgstr "Rus"
+
+#: config/settings.py:148
+msgid "Uzbek Cyrillic"
+msgstr "O'zbek Kirill"
+
+#: config/settings.py:149
+msgid "Qoraqalpoq"
+msgstr "Qoraqalpoq"
+
+#: config/utils.py:25
+msgid "A server error occurred."
+msgstr "Serverda xatolik yuz berdi"
+
+#: damaged_object/serializers.py:84 damaged_object/serializers.py:204
+msgid "You cannot create damaged object in this region."
+msgstr "Siz ushbu hududda zararlangan ob'ektni yarata olmaysiz."
+
+#: damaged_object/services.py:213 damaged_object/services.py:220
+#| msgid ""
+#| "You cannot enter this cadastral digital object because an action is "
+#| "currently being performed on this object."
+msgid ""
+"You do not have permission to enter this cadastral digital object because it "
+"belongs to another region."
+msgstr ""
+"Siz bu kadastr raqamli ob'ektni kirata olmaysiz, chunki bu ob'ekt ustida "
+"hozirda amal bajarilmoqda."
+
+#: damaged_object/validators.py:13
+msgid "The video size should not exceed 50MB."
+msgstr "Videofayl hajmi 50MB dan ortiq bo'lmasligi kerak"
+
+#: damaged_object/validators.py:22
+msgid "The video format should be MP4, AVI, MOV or MKV."
+msgstr "Videofayl formati MP4, AVI, MOV yoki MKV bo'lishi kerak"
+
+#: damaged_object/validators.py:40
+msgid "Invalid coordinates format. Must be a list of polygons."
+msgstr "Koordinatalar formati noto'g'ri. Polygonlar ro'yxati bo'lishi kerak"
+
+#: damaged_object/views.py:98
+#| msgid "This object is already checked"
+msgid "This object is not in process"
+msgstr "Bu ob'ekt allaqachon tekshirilgan"
+
+#: damaged_object/views.py:257
+msgid "Invalid type"
+msgstr "Noto'g'ri tur"
+
+#: damaged_object/views.py:295
+#| msgid "Ministry is required"
+msgid "Cadastral number is required"
+msgstr "Kadastr raqam talab qilinadi"
+
+#: damaged_object/views.py:302
+msgid ""
+"This cadastral digital object was previously included and work on it has not "
+"yet been completed."
+msgstr ""
+"Ushbu kadastr raqamli obyekt oldin kiritilgan va bu bo'yicha ishlar hali "
+"yakuniga yetmagan."
+
+#: damaged_object/views.py:324
+#| msgid "Region is required"
+msgid "PINFL is required"
+msgstr "Viloyat kerak"
+
+#: info/models.py:15
+msgid "Ministries"
+msgstr "Vazirligi"
+
+#: info/models.py:22
+msgid "Open area type"
+msgstr "Ochiq maydon tur"
+
+#: info/models.py:23
+msgid "Open area types"
+msgstr "Ochiq maydon turlari"
+
+#: plan/serializers.py:78
+msgid "Plan must have at least one item"
+msgstr "Reja ichida obyektlar bo'lishi kerak, bo'sh bo'lish mumkin emas."
+
+#: plan/serializers.py:81
+msgid "This item has not been performed yet"
+msgstr "Ushbu element hali bajarmagan"
+
+#: plan/serializers.py:109
+msgid "This plan cannot be edited."
+msgstr "Ushbu rejani tahrirlash mumkin emas."

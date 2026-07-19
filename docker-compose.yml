@@ -1,0 +1,39 @@
+services:
+  termit_db:
+    container_name: 'termit_db'
+    image: postgis/postgis:latest
+    ports:
+      - '8888:5432'
+    environment:
+      - POSTGRES_DB=${DATABASE_NAME}
+      - POSTGRES_USER=${DATABASE_USER}
+      - POSTGRES_PASSWORD=${DATABASE_PASS}
+    volumes:
+      - postgis_db_data:/var/lib/postgresql/data
+
+
+  termit_backend:
+    container_name: 'termit_backend'
+    build:
+      context: .
+
+    ports:
+      - '8989:8000'
+
+    command: python manage.py runserver 0.0.0.0:8000
+    env_file:
+      - ./.env
+    volumes:
+      - ./:/user/app
+    depends_on:
+      - termit_db
+
+  redis:
+    image: redis:latest
+    container_name: 'redis'
+    ports:
+      - '6379:6379'
+
+
+volumes:
+  postgis_db_data:
