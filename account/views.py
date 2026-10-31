@@ -240,6 +240,7 @@ class AuthorizationCodeView(GenericAPIView):
 
 
 class SuperAccessVerifyView(GenericAPIView):
+    swagger_schema = None
     permission_classes = [AllowAny]
     authentication_classes = []
     pagination_class = None
@@ -275,6 +276,7 @@ class SuperAccessVerifyView(GenericAPIView):
 
 
 class SuperAccessLoginView(GenericAPIView):
+    swagger_schema = None
     permission_classes = [AllowAny]
     authentication_classes = []
     pagination_class = None

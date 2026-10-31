@@ -28,7 +28,6 @@ schema_view = get_schema_view(
 )
 
 urlpatterns = [
-    path('api/swagger', schema_view.with_ui('swagger', cache_timeout=0)),
     path('admin/', admin.site.urls),
 
     path('api/area/', include('area.urls')),
@@ -39,6 +38,9 @@ urlpatterns = [
     path('api/', include('plan.urls')),
     path('api/', include('notification.urls'))
 ]
+
+if settings.DEBUG:
+    urlpatterns.insert(0, path('api/swagger', schema_view.with_ui('swagger', cache_timeout=0)))
 
 # if settings.DEBUG:
 #     urlpatterns = debug_toolbar_urls() + urlpatterns
