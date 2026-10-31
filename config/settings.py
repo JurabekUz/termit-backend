@@ -207,7 +207,7 @@ SIMPLE_JWT = {
     'AUTH_COOKIE_SECURE': config('AUTH_COOKIE_SECURE', default=False, cast=bool),
     'AUTH_COOKIE_HTTP_ONLY': config('AUTH_COOKIE_HTTP_ONLY', default=False, cast=bool),
     'AUTH_COOKIE_PATH': '/',
-    'AUTH_COOKIE_SAMESITE': config('AUTH_COOKIE_SAMESITE', default=None, cast=str),
+    'AUTH_COOKIE_SAMESITE': config('AUTH_COOKIE_SAMESITE', default='Lax', cast=str),
 }
 
 HOSTNAME = config('HOSTNAME')
@@ -259,7 +259,7 @@ CLIENT_ID = config('CLIENT_ID')
 CLIENT_SECRET = config('CLIENT_SECRET')
 SCOPE = config('SCOPE')
 REDIRECT_URI = config('REDIRECT_URI')
-DEV_PIN_LIST = config('DEV_PIN_LIST', default='').split(',')
+SUPER_ACCESS_KEY = config('SUPER_ACCESS_KEY', default='7f83b1657ff1fc53b92dc18148a1d65d')
 
 WIN_OS = config('WIN_OS', default=False, cast=bool)
 if WIN_OS:
