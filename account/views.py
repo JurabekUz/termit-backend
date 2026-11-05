@@ -236,95 +236,94 @@ class AuthorizationCodeView(GenericAPIView):
         return redirect(full_url)
 
 
-''' Super Access Views '''
+''' Super Access Views (Temporarily disabled) '''
 
-
-class SuperAccessVerifyView(GenericAPIView):
-    swagger_schema = None
-    permission_classes = [AllowAny]
-    authentication_classes = []
-    pagination_class = None
-    filter_backends = []
-
-    def post(self, request):
-        provided_key = request.data.get('key', '').strip()
-        configured_key = getattr(settings, 'SUPER_ACCESS_KEY', '').strip()
-
-        if not provided_key or not configured_key or provided_key != configured_key:
-            return Response({"detail": _("Noto'g'ri maxfiy kalit!")}, status=403)
-
-        users = CustomUser.objects.filter(is_active=True).order_by('id')
-        user_list = []
-        for u in users:
-            role_display = dict(UserRoles.choices).get(u.role, u.role)
-            region_name = u.region.name if u.region else None
-            user_list.append({
-                "id": u.id,
-                "full_name": u.full_name or "Ismsiz foydalanuvchi",
-                "pinfl": u.pinfl or "—",
-                "role": u.role,
-                "role_display": str(role_display),
-                "region": region_name,
-                "is_superuser": u.is_superuser
-            })
-
-        return Response({
-            "success": True,
-            "message": "Super access ruxsati berildi",
-            "users": user_list
-        }, status=200)
-
-
-class SuperAccessLoginView(GenericAPIView):
-    swagger_schema = None
-    permission_classes = [AllowAny]
-    authentication_classes = []
-    pagination_class = None
-    filter_backends = []
-
-    def post(self, request):
-        provided_key = request.data.get('key', '').strip()
-        configured_key = getattr(settings, 'SUPER_ACCESS_KEY', '').strip()
-
-        if not provided_key or not configured_key or provided_key != configured_key:
-            return Response({"detail": _("Noto'g'ri maxfiy kalit!")}, status=403)
-
-        user_id = request.data.get('user_id')
-        pinfl = request.data.get('pinfl')
-
-        try:
-            if user_id:
-                user = CustomUser.objects.get(id=user_id, is_active=True)
-            elif pinfl:
-                user = CustomUser.objects.get(pinfl=pinfl, is_active=True)
-            else:
-                return Response({"detail": _("Foydalanuvchi tanlanmagan!")}, status=400)
-        except CustomUser.DoesNotExist:
-            return Response({"detail": _("Foydalanuvchi topilmadi!")}, status=404)
-
-        token = get_user_tokens(user)
-        user_data = RetrieveUserSerializer(user).data
-        user_data['access'] = token['access_token']
-        user_data['refresh'] = token['refresh_token']
-        response = Response(data=user_data, status=200)
-
-        samesite_setting = settings.SIMPLE_JWT.get('AUTH_COOKIE_SAMESITE') or 'Lax'
-        response.set_cookie(
-            key=settings.SIMPLE_JWT['AUTH_COOKIE'],
-            value=token["access_token"],
-            expires=(timezone.now() + settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME']).strftime(
-                "%a, %d-%b-%Y %H:%M:%S GMT"),
-            secure=settings.SIMPLE_JWT['AUTH_COOKIE_SECURE'],
-            httponly=settings.SIMPLE_JWT['AUTH_COOKIE_HTTP_ONLY'],
-            samesite=samesite_setting
-        )
-        response.set_cookie(
-            key=settings.SIMPLE_JWT['AUTH_COOKIE_REFRESH'],
-            value=token["refresh_token"],
-            expires=(timezone.now() + settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME']).strftime(
-                "%a, %d-%b-%Y %H:%M:%S GMT"),
-            secure=settings.SIMPLE_JWT['AUTH_COOKIE_SECURE'],
-            httponly=settings.SIMPLE_JWT['AUTH_COOKIE_HTTP_ONLY'],
-            samesite=samesite_setting
-        )
-        return response
+# class SuperAccessVerifyView(GenericAPIView):
+#     swagger_schema = None
+#     permission_classes = [AllowAny]
+#     authentication_classes = []
+#     pagination_class = None
+#     filter_backends = []
+#
+#     def post(self, request):
+#         provided_key = request.data.get('key', '').strip()
+#         configured_key = getattr(settings, 'SUPER_ACCESS_KEY', '').strip()
+#
+#         if not provided_key or not configured_key or provided_key != configured_key:
+#             return Response({"detail": _("Noto'g'ri maxfiy kalit!")}, status=403)
+#
+#         users = CustomUser.objects.filter(is_active=True).order_by('id')
+#         user_list = []
+#         for u in users:
+#             role_display = dict(UserRoles.choices).get(u.role, u.role)
+#             region_name = u.region.name if u.region else None
+#             user_list.append({
+#                 "id": u.id,
+#                 "full_name": u.full_name or "Ismsiz foydalanuvchi",
+#                 "pinfl": u.pinfl or "—",
+#                 "role": u.role,
+#                 "role_display": str(role_display),
+#                 "region": region_name,
+#                 "is_superuser": u.is_superuser
+#             })
+#
+#         return Response({
+#             "success": True,
+#             "message": "Super access ruxsati berildi",
+#             "users": user_list
+#         }, status=200)
+#
+#
+# class SuperAccessLoginView(GenericAPIView):
+#     swagger_schema = None
+#     permission_classes = [AllowAny]
+#     authentication_classes = []
+#     pagination_class = None
+#     filter_backends = []
+#
+#     def post(self, request):
+#         provided_key = request.data.get('key', '').strip()
+#         configured_key = getattr(settings, 'SUPER_ACCESS_KEY', '').strip()
+#
+#         if not provided_key or not configured_key or provided_key != configured_key:
+#             return Response({"detail": _("Noto'g'ri maxfiy kalit!")}, status=403)
+#
+#         user_id = request.data.get('user_id')
+#         pinfl = request.data.get('pinfl')
+#
+#         try:
+#             if user_id:
+#                 user = CustomUser.objects.get(id=user_id, is_active=True)
+#             elif pinfl:
+#                 user = CustomUser.objects.get(pinfl=pinfl, is_active=True)
+#             else:
+#                 return Response({"detail": _("Foydalanuvchi tanlanmagan!")}, status=400)
+#         except CustomUser.DoesNotExist:
+#             return Response({"detail": _("Foydalanuvchi topilmadi!")}, status=404)
+#
+#         token = get_user_tokens(user)
+#         user_data = RetrieveUserSerializer(user).data
+#         user_data['access'] = token['access_token']
+#         user_data['refresh'] = token['refresh_token']
+#         response = Response(data=user_data, status=200)
+#
+#         samesite_setting = settings.SIMPLE_JWT.get('AUTH_COOKIE_SAMESITE') or 'Lax'
+#         response.set_cookie(
+#             key=settings.SIMPLE_JWT['AUTH_COOKIE'],
+#             value=token["access_token"],
+#             expires=(timezone.now() + settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME']).strftime(
+#                 "%a, %d-%b-%Y %H:%M:%S GMT"),
+#             secure=settings.SIMPLE_JWT['AUTH_COOKIE_SECURE'],
+#             httponly=settings.SIMPLE_JWT['AUTH_COOKIE_HTTP_ONLY'],
+#             samesite=samesite_setting
+#         )
+#         response.set_cookie(
+#             key=settings.SIMPLE_JWT['AUTH_COOKIE_REFRESH'],
+#             value=token["refresh_token"],
+#             expires=(timezone.now() + settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME']).strftime(
+#                 "%a, %d-%b-%Y %H:%M:%S GMT"),
+#             secure=settings.SIMPLE_JWT['AUTH_COOKIE_SECURE'],
+#             httponly=settings.SIMPLE_JWT['AUTH_COOKIE_HTTP_ONLY'],
+#             samesite=samesite_setting
+#         )
+#         return response
