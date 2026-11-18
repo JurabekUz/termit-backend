@@ -263,6 +263,7 @@ CLIENT_SECRET = config('CLIENT_SECRET')
 SCOPE = config('SCOPE')
 REDIRECT_URI = config('REDIRECT_URI')
 ENABLED_SUPER_ACCESS = config('ENABLED_SUPER_ACCESS', default=False, cast=bool)
+LOCAL = config('LOCAL', default=False, cast=bool)
 SUPER_ACCESS_KEY = config('SUPER_ACCESS_KEY', default='')
 SUPER_ACCESS_TOTP_SECRET = config('SUPER_ACCESS_TOTP_SECRET', default='')
 

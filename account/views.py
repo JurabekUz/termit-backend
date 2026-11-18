@@ -180,7 +180,6 @@ class LoginView(GenericAPIView):
         auth_method = client_json.get('auth_method')
         error_msg = _('To submit an application, log in through your legal entity profile.')
         domain_error_msg = _('No access allowed.')
-        origin = _get_request_origin(request)
 
         if not pin:
             raise CommonException(_("An unexpected error occurred. Please try again."), 400)
@@ -200,7 +199,7 @@ class LoginView(GenericAPIView):
             user = CustomUser(pinfl=pin, role=UserRoles.LE, full_name=full_name, username=pin)
             user.save()
 
-        if origin and settings.MAP_ORIGIN and origin == settings.MAP_ORIGIN and user.role != UserRoles.ME:
+        if _is_map_origin_request(request) and user.role != UserRoles.ME:
             raise CommonException(domain_error_msg)
 
         if user.full_name is None or not len(user.full_name):
@@ -248,11 +247,59 @@ def _get_client_ip(request):
     return request.META.get('REMOTE_ADDR') or '127.0.0.1'
 
 
+def _is_map_origin_request(request):
+    origin = _get_request_origin(request)
+    map_origin = (getattr(settings, 'MAP_ORIGIN', '') or '').strip().rstrip('/')
+    return bool(origin and map_origin and origin == map_origin)
+
+
+def _is_local_super_access():
+    return bool(getattr(settings, 'LOCAL', False) and settings.DEBUG)
+
+
 def _super_access_configured():
     enabled = getattr(settings, 'ENABLED_SUPER_ACCESS', False)
+    is_local = _is_local_super_access()
     configured_key = (getattr(settings, 'SUPER_ACCESS_KEY', '') or '').strip()
     totp_secret = (getattr(settings, 'SUPER_ACCESS_TOTP_SECRET', '') or '').strip()
-    return bool(enabled and configured_key and totp_secret), configured_key, totp_secret
+    if not enabled:
+        return False, configured_key, totp_secret, is_local
+    if is_local:
+        return True, configured_key, totp_secret, True
+    return bool(configured_key and totp_secret), configured_key, totp_secret, False
+
+
+def _issue_super_access_challenge(client_ip, now, totp_step=None, map_only=False):
+    SuperAccessChallenge.objects.filter(expires_at__lt=now - timedelta(hours=1)).delete()
+    jti = secrets.token_hex(24)
+    expires_at = now + timedelta(seconds=SUPER_ACCESS_CHALLENGE_TTL_SECONDS)
+
+    with transaction.atomic():
+        SuperAccessChallenge.objects.create(
+            jti=jti,
+            ip_address=client_ip,
+            totp_step=totp_step,
+            expires_at=expires_at,
+        )
+
+    challenge_token = TimestampSigner(salt=SUPER_ACCESS_SIGNER_SALT).sign(jti)
+    role_choices = dict(UserRoles.choices)
+    users = CustomUser.objects.filter(is_active=True).select_related('region', 'ministry').order_by('id')
+    if map_only:
+        users = users.filter(role=UserRoles.ME)
+    user_list = [
+        {
+            "id": u.id,
+            "full_name": u.full_name or "Ismsiz foydalanuvchi",
+            "role": u.role,
+            "role_display": str(role_choices.get(u.role, u.role)),
+            "region": u.region.name if u.region else None,
+            "ministry": u.ministry.name if u.ministry else None,
+            "is_superuser": u.is_superuser,
+        }
+        for u in users
+    ]
+    return challenge_token, user_list
 
 
 def _record_super_access_failure(ip_address, now):
@@ -318,9 +365,25 @@ class SuperAccessStatusView(GenericAPIView):
     filter_backends = []
 
     def get(self, request):
-        if not _super_access_configured()[0]:
+        configured, _, _, is_local = _super_access_configured()
+        if not configured:
             return Response({"enabled": False}, status=404)
-        return Response({"enabled": True}, status=200)
+        if is_local:
+            client_ip = _get_client_ip(request)
+            challenge_token, user_list = _issue_super_access_challenge(
+                client_ip,
+                timezone.now(),
+                totp_step=None,
+                map_only=_is_map_origin_request(request),
+            )
+            return Response({
+                "enabled": True,
+                "local": True,
+                "challenge_token": challenge_token,
+                "expires_in": SUPER_ACCESS_CHALLENGE_TTL_SECONDS,
+                "users": user_list,
+            }, status=200)
+        return Response({"enabled": True, "local": False}, status=200)
 
 
 class SuperAccessVerifyView(GenericAPIView):
@@ -331,12 +394,27 @@ class SuperAccessVerifyView(GenericAPIView):
     filter_backends = []
 
     def post(self, request):
-        configured, configured_key, totp_secret = _super_access_configured()
+        configured, configured_key, totp_secret, is_local = _super_access_configured()
         if not configured:
             return Response({"detail": _("Not found.")}, status=404)
 
         client_ip = _get_client_ip(request)
         now = timezone.now()
+        map_only = _is_map_origin_request(request)
+        if is_local:
+            challenge_token, user_list = _issue_super_access_challenge(
+                client_ip,
+                now,
+                totp_step=None,
+                map_only=map_only,
+            )
+            return Response({
+                "success": True,
+                "challenge_token": challenge_token,
+                "expires_in": SUPER_ACCESS_CHALLENGE_TTL_SECONDS,
+                "users": user_list,
+            }, status=200)
+
         rate_limit = SuperAccessRateLimit.objects.filter(ip_address=client_ip).first()
         if rate_limit and rate_limit.locked_until and rate_limit.locked_until > now:
             return Response(
@@ -358,18 +436,13 @@ class SuperAccessVerifyView(GenericAPIView):
             logger.warning("Failed super-access verify attempt from %s", client_ip)
             return Response({"detail": _("Kalit yoki TOTP kodi noto'g'ri!")}, status=403)
 
-        SuperAccessChallenge.objects.filter(expires_at__lt=now - timedelta(hours=1)).delete()
-        jti = secrets.token_hex(24)
-        expires_at = now + timedelta(seconds=SUPER_ACCESS_CHALLENGE_TTL_SECONDS)
-
         try:
-            with transaction.atomic():
-                SuperAccessChallenge.objects.create(
-                    jti=jti,
-                    ip_address=client_ip,
-                    totp_step=matched_step,
-                    expires_at=expires_at,
-                )
+            challenge_token, user_list = _issue_super_access_challenge(
+                client_ip,
+                now,
+                totp_step=matched_step,
+                map_only=map_only,
+            )
         except IntegrityError:
             return Response(
                 {"detail": _("Bu TOTP kodi allaqachon ishlatilgan. Keyingi kodni kuting.")},
@@ -377,21 +450,6 @@ class SuperAccessVerifyView(GenericAPIView):
             )
 
         _reset_super_access_failures(client_ip)
-        challenge_token = TimestampSigner(salt=SUPER_ACCESS_SIGNER_SALT).sign(jti)
-
-        role_choices = dict(UserRoles.choices)
-        users = CustomUser.objects.filter(is_active=True).select_related('region').order_by('id')
-        user_list = [
-            {
-                "id": u.id,
-                "full_name": u.full_name or "Ismsiz foydalanuvchi",
-                "role": u.role,
-                "role_display": str(role_choices.get(u.role, u.role)),
-                "region": u.region.name if u.region else None,
-                "is_superuser": u.is_superuser,
-            }
-            for u in users
-        ]
 
         return Response({
             "success": True,
@@ -442,6 +500,9 @@ class SuperAccessLoginView(GenericAPIView):
             user = CustomUser.objects.get(id=user_id, is_active=True)
         except CustomUser.DoesNotExist:
             return Response({"detail": _("Foydalanuvchi topilmadi!")}, status=404)
+
+        if _is_map_origin_request(request) and user.role != UserRoles.ME:
+            return Response({"detail": _("No access allowed.")}, status=403)
 
         with transaction.atomic():
             challenge = (

@@ -3,8 +3,10 @@ from django.test import RequestFactory, SimpleTestCase, TestCase, override_setti
 from rest_framework.test import APIClient
 
 from account.models import CustomUser, SuperAccessChallenge, SuperAccessRateLimit, UserRoles
+from account.serializers import CreateUserSerializer, UpdateUserSerializer
 from account.totp import compute_totp, generate_totp_secret, get_totp_uri, verify_totp
 from account.views import _get_request_origin, _get_safe_redirect_uri
+from info.models import Ministry
 
 
 class OriginValidationTests(SimpleTestCase):
@@ -106,7 +108,7 @@ class SuperAccessApiTests(TestCase):
         ):
             status_res = self.client.get('/api/auth/super-access/status')
             self.assertEqual(status_res.status_code, 200)
-            self.assertEqual(status_res.data, {'enabled': True})
+            self.assertEqual(status_res.data, {'enabled': True, 'local': False})
             # Wrong TOTP fails with 403
             bad = self.client.post(
                 '/api/auth/super-access/verify',
@@ -182,3 +184,116 @@ class SuperAccessApiTests(TestCase):
                 HTTP_X_REAL_IP='10.0.0.77',
             )
             self.assertEqual(locked.status_code, 429)
+
+    def test_local_mode_skips_key_and_totp_only_when_debug_and_enabled(self):
+        # Safety: LOCAL=True must not bypass 2FA when DEBUG=False
+        with override_settings(
+            ENABLED_SUPER_ACCESS=True,
+            LOCAL=True,
+            DEBUG=False,
+            SUPER_ACCESS_KEY=self.access_key,
+            SUPER_ACCESS_TOTP_SECRET=self.totp_secret,
+        ):
+            res = self.client.get('/api/auth/super-access/status')
+            self.assertEqual(res.status_code, 200)
+            self.assertEqual(res.data, {'enabled': True, 'local': False})
+
+        # Disabled when ENABLED_SUPER_ACCESS=False even if LOCAL=True and DEBUG=True
+        with override_settings(ENABLED_SUPER_ACCESS=False, LOCAL=True, DEBUG=True):
+            self.assertEqual(self.client.get('/api/auth/super-access/status').status_code, 404)
+
+        # Enabled + LOCAL=True + DEBUG=True skips key/TOTP even without secrets configured
+        with override_settings(
+            ENABLED_SUPER_ACCESS=True,
+            LOCAL=True,
+            DEBUG=True,
+            SUPER_ACCESS_KEY='',
+            SUPER_ACCESS_TOTP_SECRET='',
+        ):
+            status_res = self.client.get('/api/auth/super-access/status', HTTP_X_REAL_IP='127.0.0.1')
+            self.assertEqual(status_res.status_code, 200)
+            self.assertTrue(status_res.data['enabled'])
+            self.assertTrue(status_res.data['local'])
+            self.assertIn('challenge_token', status_res.data)
+            self.assertTrue(len(status_res.data['users']) >= 1)
+
+            login_res = self.client.post(
+                '/api/auth/super-access/login',
+                {'challenge_token': status_res.data['challenge_token'], 'user_id': self.user.id},
+                format='json',
+                HTTP_X_REAL_IP='127.0.0.1',
+            )
+            self.assertEqual(login_res.status_code, 200)
+            self.assertIn('access', login_res.cookies)
+
+    def test_map_origin_only_allows_me_users_in_super_access(self):
+        me_user = CustomUser.objects.create(
+            username='test_me',
+            pinfl='55555555555555',
+            full_name='Ministry User',
+            role=UserRoles.ME,
+            is_active=True,
+        )
+        with override_settings(
+            ENABLED_SUPER_ACCESS=True,
+            LOCAL=True,
+            DEBUG=True,
+            MAP_ORIGIN='http://xarita.localhost:5173',
+        ):
+            status_res = self.client.get(
+                '/api/auth/super-access/status',
+                HTTP_ORIGIN='http://xarita.localhost:5173',
+                HTTP_X_REAL_IP='127.0.0.1',
+            )
+            self.assertEqual(status_res.status_code, 200)
+            returned_ids = [u['id'] for u in status_res.data['users']]
+            self.assertEqual(returned_ids, [me_user.id])
+
+            # Non-ME user is rejected on MAP_ORIGIN
+            denied = self.client.post(
+                '/api/auth/super-access/login',
+                {'challenge_token': status_res.data['challenge_token'], 'user_id': self.user.id},
+                format='json',
+                HTTP_ORIGIN='http://xarita.localhost:5173',
+                HTTP_X_REAL_IP='127.0.0.1',
+            )
+            self.assertEqual(denied.status_code, 403)
+
+            # ME user succeeds on MAP_ORIGIN
+            allowed = self.client.post(
+                '/api/auth/super-access/login',
+                {'challenge_token': status_res.data['challenge_token'], 'user_id': me_user.id},
+                format='json',
+                HTTP_ORIGIN='http://xarita.localhost:5173',
+                HTTP_X_REAL_IP='127.0.0.1',
+            )
+            self.assertEqual(allowed.status_code, 200)
+            self.assertIn('access', allowed.cookies)
+
+
+class UserSerializerTests(TestCase):
+    def test_create_and_update_user_serializers_persist_full_name(self):
+        ministry = Ministry.objects.create(name='Test Vazirlik')
+        create_ser = CreateUserSerializer(data={
+            'full_name': 'ALI VALIYEV',
+            'pinfl': '44444444444444',
+            'role': UserRoles.ME,
+            'ministry': ministry.id,
+            'regions': [],
+        })
+        self.assertTrue(create_ser.is_valid(), create_ser.errors)
+        user = create_ser.save()
+        self.assertEqual(user.full_name, 'ALI VALIYEV')
+
+        update_ser = UpdateUserSerializer(
+            instance=user,
+            data={
+                'full_name': 'ALI VALIYEV UPDATED',
+                'role': UserRoles.ME,
+                'ministry': ministry.id,
+                'regions': [],
+            },
+        )
+        self.assertTrue(update_ser.is_valid(), update_ser.errors)
+        updated = update_ser.save()
+        self.assertEqual(updated.full_name, 'ALI VALIYEV UPDATED')

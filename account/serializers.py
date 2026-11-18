@@ -25,7 +25,7 @@ class CreateUserSerializer(ModelSerializer):
 
     class Meta:
         model = CustomUser
-        fields = ('id', 'pinfl', 'role', 'ministry', 'regions')
+        fields = ('id', 'full_name', 'pinfl', 'role', 'ministry', 'regions')
         extra_kwargs = {
             'pinfl': {'required': True, 'allow_blank': False}
         }
@@ -40,7 +40,7 @@ class CreateUserSerializer(ModelSerializer):
         return attrs
 
     def create(self, validated_data):
-        regions = validated_data.pop('regions')
+        regions = validated_data.pop('regions', [])
         validated_data['username'] = validated_data['pinfl']
         validated_data['password'] = random_password()
         user = CustomUser.objects.create_user(**validated_data)
@@ -62,7 +62,7 @@ class UpdateUserSerializer(ModelSerializer):
 
     class Meta:
         model = CustomUser
-        fields = ('id', 'role', 'ministry', 'regions')
+        fields = ('id', 'full_name', 'role', 'ministry', 'regions')
 
     def validate(self, attrs):
         role = attrs.get('role')
