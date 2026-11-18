@@ -1,0 +1,24 @@
+# Version control & local virtual environments
+/.git/
+/.gitignore
+/.venv/
+/venv/
+.env
+.env.*
+!.env.example
+
+# Python caches
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+*.egg-info/
+.pytest_cache/
+
+# Runtime uploads, collected staticfiles, backups & local data dumps
+/media/
+/staticfiles/
+*.dump
+*.sql
+*.log
+*.geojson
