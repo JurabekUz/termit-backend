@@ -26,9 +26,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config('DEBUG', default=True, cast=bool)
+DEBUG = config('DEBUG', default=False, cast=bool)
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost').split(',')
+
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Application definition
 
@@ -205,7 +208,7 @@ SIMPLE_JWT = {
     'AUTH_COOKIE_REFRESH': 'refresh',
     'AUTH_COOKIE_DOMAIN': config('AUTH_COOKIE_DOMAIN', default=None, cast=str),
     'AUTH_COOKIE_SECURE': config('AUTH_COOKIE_SECURE', default=False, cast=bool),
-    'AUTH_COOKIE_HTTP_ONLY': config('AUTH_COOKIE_HTTP_ONLY', default=False, cast=bool),
+    'AUTH_COOKIE_HTTP_ONLY': config('AUTH_COOKIE_HTTP_ONLY', default=True, cast=bool),
     'AUTH_COOKIE_PATH': '/',
     'AUTH_COOKIE_SAMESITE': config('AUTH_COOKIE_SAMESITE', default='Lax', cast=str),
 }

@@ -2,8 +2,9 @@ services:
   termit_db:
     container_name: 'termit_db'
     image: postgis/postgis:latest
+    restart: unless-stopped
     ports:
-      - '8888:5432'
+      - '127.0.0.1:8888:5432'
     environment:
       - POSTGRES_DB=${DATABASE_NAME}
       - POSTGRES_USER=${DATABASE_USER}
@@ -11,16 +12,13 @@ services:
     volumes:
       - postgis_db_data:/var/lib/postgresql/data
 
-
   termit_backend:
     container_name: 'termit_backend'
+    restart: unless-stopped
     build:
       context: .
-
     ports:
-      - '8989:8000'
-
-    command: python manage.py runserver 0.0.0.0:8000
+      - '127.0.0.1:8989:8000'
     env_file:
       - ./.env
     volumes:
@@ -31,9 +29,10 @@ services:
   redis:
     image: redis:latest
     container_name: 'redis'
+    restart: unless-stopped
+    command: redis-server --bind 0.0.0.0 --protected-mode yes --requirepass ${REDIS_PASSWORD:-termit_redis_local}
     ports:
-      - '6379:6379'
-
+      - '127.0.0.1:6379:6379'
 
 volumes:
   postgis_db_data:

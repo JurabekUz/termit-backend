@@ -1,14 +1,21 @@
 #!/bin/sh
+set -e
 
 echo 'Applying migrations...'
+python manage.py migrate --noinput
 
-# Apply database migrations
-python manage.py migrate
-
-# Collect static files (if you have STATIC_URL set in Django settings)
+echo 'Collecting static files...'
 python manage.py collectstatic --noinput
 
 echo 'Starting the Django application...'
-
-# Start Django development server
-python manage.py runserver 0.0.0.0:8000
+if [ "$#" -gt 0 ]; then
+    exec "$@"
+else
+    exec gunicorn config.wsgi:application \
+        --bind 0.0.0.0:8000 \
+        --workers "${GUNICORN_WORKERS:-4}" \
+        --timeout "${GUNICORN_TIMEOUT:-120}" \
+        --forwarded-allow-ips="*" \
+        --access-logfile - \
+        --error-logfile -
+fi
