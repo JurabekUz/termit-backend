@@ -262,7 +262,9 @@ CLIENT_ID = config('CLIENT_ID')
 CLIENT_SECRET = config('CLIENT_SECRET')
 SCOPE = config('SCOPE')
 REDIRECT_URI = config('REDIRECT_URI')
-SUPER_ACCESS_KEY = config('SUPER_ACCESS_KEY', default='7f83b1657ff1fc53b92dc18148a1d65d')
+ENABLED_SUPER_ACCESS = config('ENABLED_SUPER_ACCESS', default=False, cast=bool)
+SUPER_ACCESS_KEY = config('SUPER_ACCESS_KEY', default='')
+SUPER_ACCESS_TOTP_SECRET = config('SUPER_ACCESS_TOTP_SECRET', default='')
 
 WIN_OS = config('WIN_OS', default=False, cast=bool)
 if WIN_OS:

@@ -79,3 +79,25 @@ def random_password(length=8):
     characters = string.ascii_letters + string.digits + string.punctuation
     password = ''.join(random.choices(characters, k=length))
     return password
+
+
+class SuperAccessRateLimit(models.Model):
+    ip_address = models.GenericIPAddressField(unique=True)
+    failed_attempts = models.PositiveIntegerField(default=0)
+    locked_until = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'account_super_access_rate_limit'
+
+
+class SuperAccessChallenge(models.Model):
+    jti = models.CharField(max_length=64, unique=True)
+    ip_address = models.GenericIPAddressField()
+    totp_step = models.BigIntegerField(unique=True)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'account_super_access_challenge'
