@@ -7,26 +7,52 @@ from urllib.parse import urlparse
 
 from django.core.signing import BadSignature, SignatureExpired, TimestampSigner
 from django.db import IntegrityError, transaction
+from django.db.models import Count, Q
 from django.utils import timezone
 from django.utils import translation
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework.decorators import action
-from rest_framework.generics import GenericAPIView
+from rest_framework.generics import GenericAPIView, ListAPIView
 from rest_framework.viewsets import ModelViewSet
 from django.conf import settings
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.utils.translation import gettext_lazy as _
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from account.models import (
-    CustomUser, generate_username, UserRoles,
-    SuperAccessRateLimit, SuperAccessChallenge,
+from account.activity import (
+    end_user_session,
+    get_client_ip,
+    get_session_from_token,
+    record_page_navigation,
+    start_user_session,
 )
+from account.filters import UserActivityLogFilter, UserSessionFilter
+from account.models import (
+    ActivityAction,
+    CustomUser,
+    LoginMethod,
+    SuperAccessChallenge,
+    SuperAccessRateLimit,
+    UserActivityLog,
+    UserRoles,
+    UserSession,
+    generate_username,
+)
+from account.permissions import IsAdminOrCenterDirector
 from account.totp import verify_totp
-from account.serializers import UserListSerializer, CreateUserSerializer, RetrieveUserSerializer, UpdateUserSerializer, \
-    UpdateRegionUserSerializer
+from account.serializers import (
+    CreateUserSerializer,
+    PageNavigationSerializer,
+    RetrieveUserSerializer,
+    UpdateRegionUserSerializer,
+    UpdateUserSerializer,
+    UserActivityLogSerializer,
+    UserListSerializer,
+    UserSessionSerializer,
+)
 from area.serializers import AreaSelectSerializer
 from baseapp.utils import has_related_objects
 from config.utils import CommonException
@@ -102,8 +128,10 @@ class UserViewSet(ModelViewSet):
 """ AUTH Views """
 
 
-def get_user_tokens(user):
+def get_user_tokens(user, session=None):
     refresh = RefreshToken.for_user(user)
+    if session is not None:
+        refresh['sid'] = str(session.id)
     return {
         "refresh_token": str(refresh),
         "access_token": str(refresh.access_token)
@@ -211,12 +239,13 @@ class LoginView(GenericAPIView):
             except:
                 pass
 
+        session = start_user_session(user, request, login_method=LoginMethod.ONE_ID, from_page='/auth')
         response = Response(data=RetrieveUserSerializer(user).data, status=200)
-        return _set_auth_cookies(response, user)
+        return _set_auth_cookies(response, user, session=session)
 
 
-def _set_auth_cookies(response, user):
-    token = get_user_tokens(user)
+def _set_auth_cookies(response, user, session=None):
+    token = get_user_tokens(user, session=session)
     samesite_setting = settings.SIMPLE_JWT.get('AUTH_COOKIE_SAMESITE') or 'Lax'
     response.set_cookie(
         key=settings.SIMPLE_JWT['AUTH_COOKIE'],
@@ -235,16 +264,6 @@ def _set_auth_cookies(response, user):
         samesite=samesite_setting,
     )
     return response
-
-
-def _get_client_ip(request):
-    x_real_ip = request.headers.get('X-Real-IP')
-    if x_real_ip:
-        return x_real_ip.strip()
-    x_forwarded_for = request.headers.get('X-Forwarded-For')
-    if x_forwarded_for:
-        return x_forwarded_for.split(',')[0].strip()
-    return request.META.get('REMOTE_ADDR') or '127.0.0.1'
 
 
 def _is_map_origin_request(request):
@@ -322,12 +341,20 @@ def _reset_super_access_failures(ip_address):
 
 
 class LogoutView(GenericAPIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    pagination_class = None
+    filter_backends = []
 
     @swagger_auto_schema(
         operation_description="Logout user",
-        responses={204: 'No Content'}
+        responses={200: 'OK'}
     )
     def post(self, request, *args, **kwargs):
+        current_page = ''
+        if isinstance(request.data, dict):
+            current_page = str(request.data.get('current_page', '') or '')
+        end_user_session(request, reason='manual', from_page=current_page)
         response = Response(status=200)
         response.delete_cookie(settings.SIMPLE_JWT['AUTH_COOKIE'])
         response.delete_cookie(settings.SIMPLE_JWT['AUTH_COOKIE_REFRESH'])
@@ -369,7 +396,7 @@ class SuperAccessStatusView(GenericAPIView):
         if not configured:
             return Response({"enabled": False}, status=404)
         if is_local:
-            client_ip = _get_client_ip(request)
+            client_ip = get_client_ip(request)
             challenge_token, user_list = _issue_super_access_challenge(
                 client_ip,
                 timezone.now(),
@@ -398,7 +425,7 @@ class SuperAccessVerifyView(GenericAPIView):
         if not configured:
             return Response({"detail": _("Not found.")}, status=404)
 
-        client_ip = _get_client_ip(request)
+        client_ip = get_client_ip(request)
         now = timezone.now()
         map_only = _is_map_origin_request(request)
         if is_local:
@@ -471,7 +498,7 @@ class SuperAccessLoginView(GenericAPIView):
         if not configured:
             return Response({"detail": _("Not found.")}, status=404)
 
-        client_ip = _get_client_ip(request)
+        client_ip = get_client_ip(request)
         now = timezone.now()
         rate_limit = SuperAccessRateLimit.objects.filter(ip_address=client_ip).first()
         if rate_limit and rate_limit.locked_until and rate_limit.locked_until > now:
@@ -519,5 +546,100 @@ class SuperAccessLoginView(GenericAPIView):
             challenge.save(update_fields=['used_at'])
 
         logger.info("Super-access login for user_id=%s (%s) from %s", user.id, user.role, client_ip)
+        session = start_user_session(
+            user,
+            request,
+            login_method=LoginMethod.SUPER_ACCESS,
+            from_page='/auth/super-access',
+        )
         response = Response(data=RetrieveUserSerializer(user).data, status=200)
-        return _set_auth_cookies(response, user)
+        return _set_auth_cookies(response, user, session=session)
+
+
+""" Activity Log Views """
+
+
+class TrackPageNavigationView(GenericAPIView):
+    serializer_class = PageNavigationSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = None
+    filter_backends = []
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        session = get_session_from_token(request.auth, user=request.user)
+        record_page_navigation(
+            user=request.user,
+            session=session,
+            request=request,
+            from_page=serializer.validated_data.get('from_page', ''),
+            to_page=serializer.validated_data['to_page'],
+            page_title=serializer.validated_data.get('page_title', ''),
+        )
+        return Response({'tracked': True}, status=200)
+
+
+class UserActivityLogListView(ListAPIView):
+    queryset = (
+        UserActivityLog.objects.select_related('user', 'user__region', 'user__ministry', 'session')
+        .order_by('-created_at', '-id')
+    )
+    serializer_class = UserActivityLogSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrCenterDirector]
+    filterset_class = UserActivityLogFilter
+    search_fields = [
+        'user__full_name',
+        'user__pinfl',
+        'from_page',
+        'to_page',
+        'description',
+        'endpoint',
+        'ip_address',
+    ]
+
+
+class UserSessionListView(ListAPIView):
+    queryset = (
+        UserSession.objects.select_related('user', 'user__region', 'user__ministry')
+        .annotate(actions_count=Count('activities'))
+        .order_by('-login_at')
+    )
+    serializer_class = UserSessionSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrCenterDirector]
+    filterset_class = UserSessionFilter
+    search_fields = [
+        'user__full_name',
+        'user__pinfl',
+        'ip_address',
+        'last_page',
+    ]
+
+
+class UserActivitySummaryView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminOrCenterDirector]
+
+    def get(self, request):
+        today = timezone.localdate()
+        session_stats = UserSession.objects.aggregate(
+            today_logins=Count('id', filter=Q(login_at__date=today)),
+            today_logouts=Count('id', filter=Q(logout_at__date=today)),
+            active_sessions=Count('id', filter=Q(is_active=True, logout_at__isnull=True)),
+        )
+        activity_stats = UserActivityLog.objects.filter(created_at__date=today).aggregate(
+            today_page_views=Count('id', filter=Q(action=ActivityAction.PAGE_VIEW)),
+            today_actions=Count(
+                'id',
+                filter=~Q(action__in=[ActivityAction.PAGE_VIEW, ActivityAction.LOGIN, ActivityAction.LOGOUT]),
+            ),
+        )
+        return Response(
+            {
+                'today_logins': session_stats['today_logins'] or 0,
+                'today_logouts': session_stats['today_logouts'] or 0,
+                'active_sessions': session_stats['active_sessions'] or 0,
+                'today_page_views': activity_stats['today_page_views'] or 0,
+                'today_actions': activity_stats['today_actions'] or 0,
+            },
+            status=200,
+        )

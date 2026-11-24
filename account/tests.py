@@ -1,8 +1,18 @@
 import base64
+from unittest.mock import MagicMock, patch
 from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 from rest_framework.test import APIClient
 
-from account.models import CustomUser, SuperAccessChallenge, SuperAccessRateLimit, UserRoles
+from account.models import (
+    ActivityAction,
+    CustomUser,
+    LoginMethod,
+    SuperAccessChallenge,
+    SuperAccessRateLimit,
+    UserActivityLog,
+    UserRoles,
+    UserSession,
+)
 from account.serializers import CreateUserSerializer, UpdateUserSerializer
 from account.totp import compute_totp, generate_totp_secret, get_totp_uri, verify_totp
 from account.views import _get_request_origin, _get_safe_redirect_uri
@@ -297,3 +307,208 @@ class UserSerializerTests(TestCase):
         self.assertTrue(update_ser.is_valid(), update_ser.errors)
         updated = update_ser.save()
         self.assertEqual(updated.full_name, 'ALI VALIYEV UPDATED')
+
+
+class ActivityLogTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.admin_user = CustomUser.objects.create(
+            username='log_admin',
+            pinfl='11112222333344',
+            full_name='Activity Admin',
+            role=UserRoles.ADMIN,
+            is_active=True,
+        )
+        self.rm_user = CustomUser.objects.create(
+            username='log_rm',
+            pinfl='99998888777766',
+            full_name='Regional Staff',
+            role=UserRoles.RM,
+            is_active=True,
+        )
+
+    def test_super_access_login_navigation_action_and_logout_lifecycle(self):
+        with override_settings(ENABLED_SUPER_ACCESS=True, LOCAL=True, DEBUG=True):
+            status_res = self.client.get('/api/auth/super-access/status', HTTP_X_REAL_IP='10.1.2.3')
+            self.assertEqual(status_res.status_code, 200)
+            token = status_res.data['challenge_token']
+
+            login_res = self.client.post(
+                '/api/auth/super-access/login',
+                {'challenge_token': token, 'user_id': self.admin_user.id},
+                format='json',
+                HTTP_X_REAL_IP='10.1.2.3',
+            )
+            self.assertEqual(login_res.status_code, 200)
+
+        session = UserSession.objects.get(user=self.admin_user)
+        self.assertTrue(session.is_active)
+        self.assertIsNone(session.logout_at)
+        self.assertEqual(session.login_method, LoginMethod.SUPER_ACCESS)
+        self.assertEqual(session.ip_address, '10.1.2.3')
+
+        login_log = UserActivityLog.objects.filter(user=self.admin_user, action=ActivityAction.LOGIN).first()
+        self.assertIsNotNone(login_log)
+        self.assertEqual(login_log.session_id, session.id)
+        self.assertEqual(login_log.from_page, '/auth/super-access')
+
+        # Track page navigation
+        nav_res = self.client.post(
+            '/api/activity-logs/navigate',
+            {'from_page': '/dashboard', 'to_page': '/users', 'page_title': 'Users'},
+            format='json',
+            HTTP_X_REAL_IP='10.1.2.3',
+        )
+        self.assertEqual(nav_res.status_code, 200)
+        session.refresh_from_db()
+        self.assertEqual(session.last_page, '/users')
+
+        nav_log = UserActivityLog.objects.filter(user=self.admin_user, action=ActivityAction.PAGE_VIEW).first()
+        self.assertIsNotNone(nav_log)
+        self.assertEqual(nav_log.from_page, '/dashboard')
+        self.assertEqual(nav_log.to_page, '/users')
+        self.assertEqual(nav_log.session_id, session.id)
+
+        # Mutating API action with X-Current-Page header is logged automatically by middleware
+        ministry_res = self.client.post(
+            '/api/info/ministries',
+            {'name': 'Audit Test Ministry'},
+            format='json',
+            HTTP_X_CURRENT_PAGE='/ministries',
+            HTTP_X_REAL_IP='10.1.2.3',
+        )
+        self.assertEqual(ministry_res.status_code, 201)
+
+        ministry_id = ministry_res.data['id']
+        action_log = UserActivityLog.objects.filter(
+            user=self.admin_user, action=ActivityAction.CREATE, resource_type='ministry'
+        ).first()
+        self.assertIsNotNone(action_log)
+        self.assertEqual(action_log.from_page, '/ministries')
+        self.assertEqual(action_log.method, 'POST')
+        self.assertEqual(action_log.session_id, session.id)
+        self.assertEqual(action_log.resource_id, str(ministry_id))
+        self.assertEqual(action_log.object_repr, 'Audit Test Ministry')
+        self.assertEqual(action_log.changes.get('schema'), 'audit-diff/v1')
+        self.assertEqual(action_log.changes.get('operation'), 'create')
+        self.assertEqual(action_log.changes.get('model'), 'info.Ministry')
+        self.assertEqual(
+            action_log.changes.get('fields', {}).get('name'),
+            {'old': None, 'new': 'Audit Test Ministry'},
+        )
+        self.assertEqual(
+            action_log.changes.get('request_payload'),
+            {'name': 'Audit Test Ministry'},
+        )
+
+        # PUT update captures field-level old -> new diff in standard JSON format
+        update_res = self.client.put(
+            f'/api/info/ministries/{ministry_id}',
+            {'name': 'Renamed Audit Ministry'},
+            format='json',
+            HTTP_X_CURRENT_PAGE='/ministries',
+            HTTP_X_REAL_IP='10.1.2.3',
+        )
+        self.assertEqual(update_res.status_code, 200)
+
+        update_log = UserActivityLog.objects.filter(
+            user=self.admin_user, action=ActivityAction.UPDATE, resource_type='ministry'
+        ).first()
+        self.assertIsNotNone(update_log)
+        self.assertEqual(update_log.changes.get('operation'), 'update')
+        self.assertEqual(
+            update_log.changes.get('fields', {}).get('name'),
+            {'old': 'Audit Test Ministry', 'new': 'Renamed Audit Ministry'},
+        )
+
+        # Admin can query activity logs, sessions, and summary
+        logs_res = self.client.get('/api/activity-logs')
+        self.assertEqual(logs_res.status_code, 200)
+        self.assertGreaterEqual(logs_res.data['count'], 4)
+        first_row = logs_res.data['results'][0]
+        self.assertIn('login_at', first_row)
+        self.assertIn('logout_at', first_row)
+        self.assertIn('from_page', first_row)
+        self.assertIn('to_page', first_row)
+        self.assertIn('changes', first_row)
+        self.assertIn('object_repr', first_row)
+
+        sessions_res = self.client.get('/api/activity-logs/sessions')
+        self.assertEqual(sessions_res.status_code, 200)
+        self.assertEqual(sessions_res.data['count'], 1)
+        self.assertEqual(sessions_res.data['results'][0]['actions_count'], 4)
+
+        summary_res = self.client.get('/api/activity-logs/summary')
+        self.assertEqual(summary_res.status_code, 200)
+        self.assertEqual(summary_res.data['active_sessions'], 1)
+        self.assertGreaterEqual(summary_res.data['today_logins'], 1)
+
+        # Logout closes session and logs logout_at + from_page
+        logout_res = self.client.post(
+            '/api/auth/logout',
+            {'current_page': '/ministries'},
+            format='json',
+            HTTP_X_REAL_IP='10.1.2.3',
+        )
+        self.assertEqual(logout_res.status_code, 200)
+
+        session.refresh_from_db()
+        self.assertFalse(session.is_active)
+        self.assertIsNotNone(session.logout_at)
+        self.assertEqual(session.logout_reason, 'manual')
+
+        logout_log = UserActivityLog.objects.filter(user=self.admin_user, action=ActivityAction.LOGOUT).first()
+        self.assertIsNotNone(logout_log)
+        self.assertEqual(logout_log.from_page, '/ministries')
+        self.assertEqual(logout_log.to_page, '/auth')
+        self.assertEqual(logout_log.session_id, session.id)
+
+    def test_activity_log_endpoints_require_admin_or_cd_role(self):
+        unauth_res = self.client.get('/api/activity-logs')
+        self.assertEqual(unauth_res.status_code, 401)
+
+        self.client.force_authenticate(user=self.rm_user)
+        self.assertEqual(self.client.get('/api/activity-logs').status_code, 403)
+        self.assertEqual(self.client.get('/api/activity-logs/sessions').status_code, 403)
+        self.assertEqual(self.client.get('/api/activity-logs/summary').status_code, 403)
+
+        cd_user = CustomUser.objects.create(
+            username='log_cd',
+            pinfl='77776666555544',
+            full_name='Center Director',
+            role=UserRoles.CD,
+            is_active=True,
+        )
+        self.client.force_authenticate(user=cd_user)
+        self.assertEqual(self.client.get('/api/activity-logs').status_code, 200)
+        self.assertEqual(self.client.get('/api/activity-logs/sessions').status_code, 200)
+        self.assertEqual(self.client.get('/api/activity-logs/summary').status_code, 200)
+
+    @patch('account.views.requests.post')
+    def test_oneid_login_creates_session_and_login_log(self, mock_post):
+        token_resp = MagicMock()
+        token_resp.status_code = 200
+        token_resp.json.return_value = {'access_token': 'oneid-access'}
+
+        profile_resp = MagicMock()
+        profile_resp.status_code = 200
+        profile_resp.json.return_value = {
+            'pin': self.rm_user.pinfl,
+            'auth_method': 'PKCMETHOD',
+            'first_name': 'Regional',
+            'sur_name': 'Staff',
+        }
+        mock_post.side_effect = [token_resp, profile_resp]
+
+        res = self.client.get('/api/auth/login', {'code': 'dummy-code'}, HTTP_X_REAL_IP='10.9.8.7')
+        self.assertEqual(res.status_code, 200)
+        self.assertIn('access', res.cookies)
+
+        session = UserSession.objects.get(user=self.rm_user)
+        self.assertEqual(session.login_method, LoginMethod.ONE_ID)
+        self.assertEqual(session.ip_address, '10.9.8.7')
+        self.assertTrue(
+            UserActivityLog.objects.filter(
+                user=self.rm_user, session=session, action=ActivityAction.LOGIN
+            ).exists()
+        )

@@ -1,7 +1,9 @@
+from django.utils import timezone
+from rest_framework import serializers
 from rest_framework.fields import CharField
 from rest_framework.serializers import ModelSerializer, SerializerMethodField
 
-from account.models import CustomUser, random_password, UserRoles
+from account.models import CustomUser, UserActivityLog, UserRoles, UserSession, random_password
 from account.validators import user_role_validator
 from area.serializers import AreaSelectSerializer
 from baseapp.serializers import IdNameSerializer
@@ -99,3 +101,98 @@ class UpdateRegionUserSerializer(ModelSerializer):
         if not user.regions.filter(id=value.id).exists():
             raise CommonException("You do not select this region")
         return value
+
+
+class ActivityUserSerializer(ModelSerializer):
+    region_name = CharField(source='region.name', read_only=True, allow_null=True)
+    ministry_name = CharField(source='ministry.name', read_only=True, allow_null=True)
+
+    class Meta:
+        model = CustomUser
+        fields = ('id', 'full_name', 'pinfl', 'role', 'region_name', 'ministry_name')
+
+
+class UserSessionSerializer(ModelSerializer):
+    user = ActivityUserSerializer(read_only=True)
+    ip_address = serializers.CharField(read_only=True, allow_null=True)
+    login_at = serializers.DateTimeField(format="%d-%m-%Y %H:%M:%S", read_only=True)
+    logout_at = serializers.DateTimeField(format="%d-%m-%Y %H:%M:%S", read_only=True, allow_null=True)
+    last_seen_at = serializers.DateTimeField(format="%d-%m-%Y %H:%M:%S", read_only=True)
+    actions_count = serializers.IntegerField(read_only=True, default=0)
+    duration_seconds = SerializerMethodField()
+
+    class Meta:
+        model = UserSession
+        fields = (
+            'id',
+            'user',
+            'login_method',
+            'login_at',
+            'logout_at',
+            'last_seen_at',
+            'logout_reason',
+            'ip_address',
+            'user_agent',
+            'last_page',
+            'is_active',
+            'actions_count',
+            'duration_seconds',
+        )
+
+    def get_duration_seconds(self, obj):
+        end_time = obj.logout_at or (timezone.now() if obj.is_active else obj.last_seen_at)
+        if not end_time or not obj.login_at:
+            return 0
+        return max(0, int((end_time - obj.login_at).total_seconds()))
+
+
+class UserActivityLogSerializer(ModelSerializer):
+    user = ActivityUserSerializer(read_only=True)
+    ip_address = serializers.CharField(read_only=True, allow_null=True)
+    session_id = serializers.UUIDField(read_only=True, allow_null=True)
+    login_at = serializers.DateTimeField(
+        source='session.login_at', format="%d-%m-%Y %H:%M:%S", read_only=True, allow_null=True
+    )
+    logout_at = serializers.DateTimeField(
+        source='session.logout_at', format="%d-%m-%Y %H:%M:%S", read_only=True, allow_null=True
+    )
+    session_is_active = serializers.BooleanField(
+        source='session.is_active', read_only=True, allow_null=True
+    )
+    login_method = serializers.CharField(
+        source='session.login_method', read_only=True, allow_null=True
+    )
+    created_at = serializers.DateTimeField(format="%d-%m-%Y %H:%M:%S", read_only=True)
+
+    class Meta:
+        model = UserActivityLog
+        fields = (
+            'id',
+            'user',
+            'session_id',
+            'login_at',
+            'logout_at',
+            'session_is_active',
+            'login_method',
+            'action',
+            'method',
+            'endpoint',
+            'from_page',
+            'to_page',
+            'page_title',
+            'resource_type',
+            'resource_id',
+            'object_repr',
+            'description',
+            'status_code',
+            'ip_address',
+            'changes',
+            'metadata',
+            'created_at',
+        )
+
+
+class PageNavigationSerializer(serializers.Serializer):
+    from_page = serializers.CharField(max_length=500, required=False, allow_blank=True, default='')
+    to_page = serializers.CharField(max_length=500, required=True, allow_blank=False)
+    page_title = serializers.CharField(max_length=255, required=False, allow_blank=True, default='')

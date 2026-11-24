@@ -1,10 +1,12 @@
 import random
 import string
+import uuid
 
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import RegexValidator
 
 from django.db import models
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 
@@ -101,3 +103,85 @@ class SuperAccessChallenge(models.Model):
 
     class Meta:
         db_table = 'account_super_access_challenge'
+
+
+class LoginMethod(models.TextChoices):
+    ONE_ID = 'oneid', _('OneID')
+    SUPER_ACCESS = 'super_access', _('Super Access')
+
+
+class ActivityAction(models.TextChoices):
+    LOGIN = 'login', _('Login')
+    LOGOUT = 'logout', _('Logout')
+    PAGE_VIEW = 'page_view', _('Page view')
+    CREATE = 'create', _('Create')
+    UPDATE = 'update', _('Update')
+    DELETE = 'delete', _('Delete')
+    APPROVE = 'approve', _('Approve')
+    REJECT = 'reject', _('Reject')
+    ACTION = 'action', _('Action')
+
+
+class UserSession(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='sessions')
+    login_method = models.CharField(max_length=20, choices=LoginMethod.choices, default=LoginMethod.ONE_ID)
+    login_at = models.DateTimeField(default=timezone.now, db_index=True)
+    logout_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    last_seen_at = models.DateTimeField(default=timezone.now, db_index=True)
+    logout_reason = models.CharField(max_length=30, blank=True, default='')
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.CharField(max_length=512, blank=True, default='')
+    last_page = models.CharField(max_length=500, blank=True, default='')
+    is_active = models.BooleanField(default=True, db_index=True)
+
+    class Meta:
+        db_table = 'account_user_session'
+        ordering = ['-login_at']
+        indexes = [
+            models.Index(fields=['user', '-login_at']),
+            models.Index(fields=['is_active', '-last_seen_at']),
+        ]
+        verbose_name = _("User session")
+        verbose_name_plural = _("User sessions")
+
+    def __str__(self):
+        return f"{self.user_id} ({self.login_method}) @ {self.login_at}"
+
+
+class UserActivityLog(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='activity_logs')
+    session = models.ForeignKey(
+        UserSession, on_delete=models.SET_NULL, null=True, blank=True, related_name='activities'
+    )
+    action = models.CharField(max_length=40, choices=ActivityAction.choices, db_index=True)
+    method = models.CharField(max_length=10, blank=True, default='')
+    endpoint = models.CharField(max_length=500, blank=True, default='')
+    from_page = models.CharField(max_length=500, blank=True, default='')
+    to_page = models.CharField(max_length=500, blank=True, default='')
+    page_title = models.CharField(max_length=255, blank=True, default='')
+    resource_type = models.CharField(max_length=64, blank=True, default='', db_index=True)
+    resource_id = models.CharField(max_length=64, blank=True, default='')
+    object_repr = models.CharField(max_length=255, blank=True, default='')
+    description = models.CharField(max_length=500, blank=True, default='')
+    status_code = models.PositiveSmallIntegerField(null=True, blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.CharField(max_length=512, blank=True, default='')
+    changes = models.JSONField(default=dict, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(default=timezone.now, db_index=True)
+
+    class Meta:
+        db_table = 'account_activity_log'
+        ordering = ['-created_at', '-id']
+        indexes = [
+            models.Index(fields=['user', '-created_at']),
+            models.Index(fields=['action', '-created_at']),
+            models.Index(fields=['session', '-created_at']),
+        ]
+        verbose_name = _("User activity log")
+        verbose_name_plural = _("User activity logs")
+
+    def __str__(self):
+        return f"{self.user_id} {self.action} {self.to_page or self.endpoint}"
