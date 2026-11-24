@@ -9,6 +9,16 @@ from damaged_object.views import (
     OpenAreaStatusStatView,
     CadastralObjectView, CadastralNumbersView
 )
+from damaged_object.dashboard_views import (
+    DashboardOverviewStatView,
+    DashboardDynamicsStatView,
+    DashboardCompositionStatView,
+    DashboardRegionalRankingView,
+    DashboardPlanExecutionView,
+    DashboardOperationalFeedView,
+    DashboardMapPointsView,
+    DashboardMapInspectorView,
+)
 
 router = DefaultRouter(trailing_slash=False)
 router.register(r'mahalla', MahallaInfoViewSet)
@@ -19,6 +29,15 @@ urlpatterns = [
     path('statistics/mahalla', MahallaStatusStatView.as_view()),
     path('statistics/objects', ObjectStatView.as_view()),
     path('statistics/open-area', OpenAreaStatusStatView.as_view()),
+
+    path('statistics/dashboard-overview', DashboardOverviewStatView.as_view()),
+    path('statistics/dynamics', DashboardDynamicsStatView.as_view()),
+    path('statistics/composition', DashboardCompositionStatView.as_view()),
+    path('statistics/regional-ranking', DashboardRegionalRankingView.as_view()),
+    path('statistics/plan-execution', DashboardPlanExecutionView.as_view()),
+    path('statistics/operational-feed', DashboardOperationalFeedView.as_view()),
+    path('statistics/map-points', DashboardMapPointsView.as_view()),
+    path('statistics/map-inspector', DashboardMapInspectorView.as_view()),
 
     path('damaged-object/', include(router.urls)),
 

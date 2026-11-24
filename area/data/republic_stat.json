@@ -1,5 +1,8 @@
 {
-  "population": 37543200.0,
-  "population_density": 83.6,
-  "area": 448.98
+  "population": 39023600,
+  "population_density": 86.9,
+  "area": 44892000,
+  "area_km2": 448920.0,
+  "last_synced": "2026-11-24",
+  "source": "SIAT (api.siat.stat.uz)"
 }
