@@ -118,7 +118,7 @@ class SuperAccessApiTests(TestCase):
         ):
             status_res = self.client.get('/api/auth/super-access/status')
             self.assertEqual(status_res.status_code, 200)
-            self.assertEqual(status_res.data, {'enabled': True, 'local': False})
+            self.assertEqual(status_res.data, {'enabled': True, 'local': False, 'totp_required': True})
             # Wrong TOTP fails with 403
             bad = self.client.post(
                 '/api/auth/super-access/verify',
@@ -206,7 +206,7 @@ class SuperAccessApiTests(TestCase):
         ):
             res = self.client.get('/api/auth/super-access/status')
             self.assertEqual(res.status_code, 200)
-            self.assertEqual(res.data, {'enabled': True, 'local': False})
+            self.assertEqual(res.data, {'enabled': True, 'local': False, 'totp_required': True})
 
         # Disabled when ENABLED_SUPER_ACCESS=False even if LOCAL=True and DEBUG=True
         with override_settings(ENABLED_SUPER_ACCESS=False, LOCAL=True, DEBUG=True):
@@ -279,6 +279,46 @@ class SuperAccessApiTests(TestCase):
             )
             self.assertEqual(allowed.status_code, 200)
             self.assertIn('access', allowed.cookies)
+
+    def test_verify_and_login_without_totp_when_totp_secret_empty(self):
+        with override_settings(
+            ENABLED_SUPER_ACCESS=True,
+            LOCAL=False,
+            DEBUG=False,
+            SUPER_ACCESS_KEY=self.access_key,
+            SUPER_ACCESS_TOTP_SECRET='',
+        ):
+            status_res = self.client.get('/api/auth/super-access/status')
+            self.assertEqual(status_res.status_code, 200)
+            self.assertEqual(status_res.data, {'enabled': True, 'local': False, 'totp_required': False})
+
+            bad_key = self.client.post(
+                '/api/auth/super-access/verify',
+                {'key': 'wrong-key'},
+                format='json',
+                HTTP_X_REAL_IP='10.0.0.12',
+            )
+            self.assertEqual(bad_key.status_code, 403)
+
+            ok = self.client.post(
+                '/api/auth/super-access/verify',
+                {'key': self.access_key},
+                format='json',
+                HTTP_X_REAL_IP='10.0.0.12',
+            )
+            self.assertEqual(ok.status_code, 200)
+            self.assertTrue(ok.data['success'])
+            token = ok.data['challenge_token']
+
+            login_ok = self.client.post(
+                '/api/auth/super-access/login',
+                {'challenge_token': token, 'user_id': self.user.id},
+                format='json',
+                HTTP_X_REAL_IP='10.0.0.12',
+            )
+            self.assertEqual(login_ok.status_code, 200)
+            self.assertIn('access', login_ok.cookies)
+            self.assertIn('refresh', login_ok.cookies)
 
 
 class UserSerializerTests(TestCase):

@@ -285,7 +285,7 @@ def _super_access_configured():
         return False, configured_key, totp_secret, is_local
     if is_local:
         return True, configured_key, totp_secret, True
-    return bool(configured_key and totp_secret), configured_key, totp_secret, False
+    return bool(configured_key), configured_key, totp_secret, False
 
 
 def _issue_super_access_challenge(client_ip, now, totp_step=None, map_only=False):
@@ -392,7 +392,7 @@ class SuperAccessStatusView(GenericAPIView):
     filter_backends = []
 
     def get(self, request):
-        configured, _, _, is_local = _super_access_configured()
+        configured, _, totp_secret, is_local = _super_access_configured()
         if not configured:
             return Response({"enabled": False}, status=404)
         if is_local:
@@ -406,11 +406,16 @@ class SuperAccessStatusView(GenericAPIView):
             return Response({
                 "enabled": True,
                 "local": True,
+                "totp_required": False,
                 "challenge_token": challenge_token,
                 "expires_in": SUPER_ACCESS_CHALLENGE_TTL_SECONDS,
                 "users": user_list,
             }, status=200)
-        return Response({"enabled": True, "local": False}, status=200)
+        return Response({
+            "enabled": True,
+            "local": False,
+            "totp_required": bool(totp_secret),
+        }, status=200)
 
 
 class SuperAccessVerifyView(GenericAPIView):
@@ -456,12 +461,24 @@ class SuperAccessVerifyView(GenericAPIView):
             provided_key.encode('utf-8'),
             configured_key.encode('utf-8'),
         )
-        totp_ok, matched_step = verify_totp(totp_secret, provided_totp)
+        totp_required = bool(totp_secret)
 
-        if not (key_ok and totp_ok and matched_step is not None):
+        if totp_required:
+            totp_ok, matched_step = verify_totp(totp_secret, provided_totp)
+            verified = key_ok and totp_ok and matched_step is not None
+        else:
+            matched_step = None
+            verified = key_ok
+
+        if not verified:
             _record_super_access_failure(client_ip, now)
             logger.warning("Failed super-access verify attempt from %s", client_ip)
-            return Response({"detail": _("Kalit yoki TOTP kodi noto'g'ri!")}, status=403)
+            detail = (
+                _("Kalit yoki TOTP kodi noto'g'ri!")
+                if totp_required
+                else _("Kirish kaliti noto'g'ri!")
+            )
+            return Response({"detail": detail}, status=403)
 
         try:
             challenge_token, user_list = _issue_super_access_challenge(
